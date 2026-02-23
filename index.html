@@ -145,7 +145,7 @@ function addMutuo(cap='',tasso='',durata='',tipo='anni'){
   card.innerHTML = `
     <h3><span class="dot" style="background:${color}"></span> Mutuo ${mutui.length}</h3>
     <button class="remove-btn" onclick="removeMutuo(${id})" title="Rimuovi">✕</button>
-    <div class="field"><label>Capitale (€)</label><input type="number" id="cap-${id}" value="${cap}" placeholder="es. 200000" min="0" step="1000"></div>
+    <div class="field"><label>Capitale (€)</label><input type="number" id="cap-${id}" value="${cap}" placeholder="es. 300000" min="0" step="1000"></div>
     <div class="field"><label>Tasso Annuo (%)</label><input type="number" id="tasso-${id}" value="${tasso}" placeholder="es. 3.0" min="0" step="0.1"></div>
     <div class="field">
       <label>Durata</label>
@@ -187,9 +187,9 @@ function clearAll(){
 }
 
 function addPreset(){
-  addMutuo(200000,2.5,20,'anni');
-  addMutuo(200000,3.0,25,'anni');
-  addMutuo(200000,3.5,30,'anni');
+  addMutuo(300000,2.5,20,'anni');
+  addMutuo(300000,3.0,25,'anni');
+  addMutuo(300000,3.5,30,'anni');
 }
 
 function calcMutuo(capitale, tassoAnnuo, mesi){
