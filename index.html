@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulatore di Mutui</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f0f; --surface: #1a1a1a; --surface2: #242424;
+    --accent: #f5c518; --accent2: #e0b400; --text: #f0f0f0;
+    --muted: #888; --border: #333; --red: #e74c3c; --blue: #3498db;
+    --green: #2ecc71;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  .header { background:linear-gradient(135deg,#1a1a1a 0%,#2a2a2a 100%); border-bottom:3px solid var(--accent); padding:1.5rem 2rem; text-align:center; }
+  .header h1 { font-size:1.8rem; font-weight:700; }
+  .header h1 span { color:var(--accent); }
+  .header p { color:var(--muted); margin-top:.3rem; font-size:.95rem; }
+  .container { max-width:1200px; margin:0 auto; padding:1.5rem; }
+  .controls { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .controls label { font-weight:600; }
+  .btn { background:var(--accent); color:#000; border:none; padding:.55rem 1.2rem; border-radius:8px; font-weight:700; cursor:pointer; font-size:.9rem; transition:all .15s; }
+  .btn:hover { background:var(--accent2); transform:translateY(-1px); }
+  .btn-outline { background:transparent; border:2px solid var(--accent); color:var(--accent); }
+  .btn-outline:hover { background:var(--accent); color:#000; }
+  .btn-danger { background:var(--red); color:#fff; }
+  .btn-danger:hover { background:#c0392b; }
+  input[type=number], select {
+    background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:.5rem .75rem; border-radius:8px; font-size:.95rem; width:100%;
+  }
+  input:focus, select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(245,197,24,.2); }
+  .mutui-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .mutuo-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.2rem;
+    position:relative; transition:border-color .2s;
+  }
+  .mutuo-card:hover { border-color:var(--accent); }
+  .mutuo-card h3 { font-size:1rem; margin-bottom:.8rem; display:flex; align-items:center; gap:.5rem; }
+  .mutuo-card h3 .dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .mutuo-card .field { margin-bottom:.6rem; }
+  .mutuo-card .field label { display:block; font-size:.8rem; color:var(--muted); margin-bottom:.2rem; }
+  .mutuo-card .remove-btn { position:absolute; top:.8rem; right:.8rem; background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; }
+  .mutuo-card .remove-btn:hover { color:var(--red); }
+  .results-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; margin-bottom:2rem; }
+  .result-card {
+    background:var(--surface); border-radius:12px; padding:1.2rem; border-left:4px solid var(--accent);
+  }
+  .result-card h4 { font-size:.85rem; color:var(--muted); margin-bottom:.5rem; }
+  .result-card .val { font-size:1.5rem; font-weight:700; }
+  .result-card .sub { font-size:.8rem; color:var(--muted); margin-top:.3rem; }
+  .charts-section { margin-top:1rem; }
+  .chart-container {
+    background:var(--surface); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
+    border:1px solid var(--border);
+  }
+  .chart-container h3 { margin-bottom:1rem; font-size:1.1rem; }
+  .chart-wrap { position:relative; width:100%; }
+  .tabs { display:flex; gap:.5rem; margin-bottom:1rem; flex-wrap:wrap; }
+  .tab { padding:.4rem 1rem; border-radius:20px; background:var(--surface2); border:1px solid var(--border); color:var(--muted); cursor:pointer; font-size:.85rem; transition:all .15s; }
+  .tab.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  .summary-table { width:100%; border-collapse:collapse; margin-top:1rem; }
+  .summary-table th, .summary-table td { padding:.6rem .8rem; text-align:right; border-bottom:1px solid var(--border); font-size:.9rem; }
+  .summary-table th { color:var(--muted); font-weight:600; text-align:right; }
+  .summary-table th:first-child, .summary-table td:first-child { text-align:left; }
+  .summary-table tr:hover td { background:var(--surface2); }
+  .empty-state { text-align:center; padding:3rem; color:var(--muted); }
+  .empty-state .icon { font-size:3rem; margin-bottom:1rem; }
+  @media(max-width:600px){
+    .container{padding:1rem;} .header h1{font-size:1.3rem;}
+    .mutui-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏠 Simulatore di <span>Mutui</span></h1>
+  <p>Confronta diverse soluzioni di mutuo e visualizza costi e interessi nel tempo</p>
+</div>
+
+<div class="container">
+  <div class="controls">
+    <button class="btn" onclick="addMutuo()">+ Aggiungi Mutuo</button>
+    <button class="btn btn-outline" onclick="addPreset()">Preset Esempio</button>
+    <button class="btn btn-danger" onclick="clearAll()">Cancella Tutto</button>
+    <div style="flex:1"></div>
+    <button class="btn" onclick="calcola()" style="font-size:1rem;padding:.6rem 2rem;">📊 Calcola e Visualizza</button>
+  </div>
+
+  <div id="mutuiGrid" class="mutui-grid"></div>
+
+  <div id="resultsSection" style="display:none;">
+    <h2 style="margin-bottom:1rem;">📋 Riepilogo</h2>
+    <div id="resultsGrid" class="results-grid"></div>
+
+    <table class="summary-table" id="summaryTable"></table>
+
+    <div class="charts-section">
+      <div class="chart-container">
+        <h3>📊 Confronto Rata Mensile vs Totale Pagato</h3>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📈 Composizione Pagamenti nel Tempo (Interessi vs Capitale)</h3>
+        <div class="tabs" id="areaTabs"></div>
+        <div class="chart-wrap"><canvas id="areaChart"></canvas></div>
+      </div>
+
+      <div class="chart-container">
+        <h3>📉 Debito Residuo nel Tempo</h3>
+        <div class="chart-wrap"><canvas id="debtChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="emptyState" class="empty-state">
+    <div class="icon">🏦</div>
+    <p>Aggiungi almeno un mutuo per iniziare la simulazione</p>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#f5c518','#3498db','#2ecc71','#e74c3c','#9b59b6','#e67e22','#1abc9c','#fd79a8'];
+let mutui = [];
+let mutuiCount = 0;
+let barChartInst = null, areaChartInst = null, debtChartInst = null;
+let calcResults = [];
+let activeAreaTab = 0;
+
+function fmt(n){ return n.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function addMutuo(cap='',tasso='',durata='',tipo='anni'){
+  mutuiCount++;
+  const id = mutuiCount;
+  const color = COLORS[(mutui.length)%COLORS.length];
+  mutui.push(id);
+  const grid = document.getElementById('mutuiGrid');
+  const card = document.createElement('div');
+  card.className = 'mutuo-card';
+  card.id = 'mutuo-'+id;
+  card.innerHTML = `
+    <h3><span class="dot" style="background:${color}"></span> Mutuo ${mutui.length}</h3>
+    <button class="remove-btn" onclick="removeMutuo(${id})" title="Rimuovi">✕</button>
+    <div class="field"><label>Capitale (€)</label><input type="number" id="cap-${id}" value="${cap}" placeholder="es. 200000" min="0" step="1000"></div>
+    <div class="field"><label>Tasso Annuo (%)</label><input type="number" id="tasso-${id}" value="${tasso}" placeholder="es. 3.0" min="0" step="0.1"></div>
+    <div class="field">
+      <label>Durata</label>
+      <div style="display:flex;gap:.5rem;">
+        <input type="number" id="durata-${id}" value="${durata}" placeholder="es. 30" min="1" style="flex:1">
+        <select id="tipo-${id}" style="width:auto;flex:0 0 80px;">
+          <option value="anni" ${tipo==='anni'?'selected':''}>Anni</option>
+          <option value="mesi" ${tipo==='mesi'?'selected':''}>Mesi</option>
+        </select>
+      </div>
+    </div>`;
+  grid.appendChild(card);
+  document.getElementById('emptyState').style.display='none';
+}
+
+function removeMutuo(id){
+  const el = document.getElementById('mutuo-'+id);
+  if(el) el.remove();
+  mutui = mutui.filter(m=>m!==id);
+  if(mutui.length===0) document.getElementById('emptyState').style.display='';
+  renumberCards();
+}
+
+function renumberCards(){
+  const cards = document.querySelectorAll('.mutuo-card');
+  cards.forEach((c,i)=>{
+    const h3 = c.querySelector('h3');
+    const dot = h3.querySelector('.dot');
+    dot.style.background = COLORS[i%COLORS.length];
+    h3.childNodes[1].textContent = ` Mutuo ${i+1}`;
+  });
+}
+
+function clearAll(){
+  document.getElementById('mutuiGrid').innerHTML='';
+  mutui=[]; mutuiCount=0;
+  document.getElementById('resultsSection').style.display='none';
+  document.getElementById('emptyState').style.display='';
+}
+
+function addPreset(){
+  addMutuo(200000,2.5,20,'anni');
+  addMutuo(200000,3.0,25,'anni');
+  addMutuo(200000,3.5,30,'anni');
+}
+
+function calcMutuo(capitale, tassoAnnuo, mesi){
+  const r = tassoAnnuo/100/12;
+  if(r===0){ const rata=capitale/mesi; return{rata,interessi:0,totale:capitale,schedule:[]}; }
+  const rata = capitale * r / (1 - Math.pow(1+r,-mesi));
+  const totale = rata * mesi;
+  const interessi = totale - capitale;
+  const schedule = [];
+  let residuo = capitale;
+  let cumInteressi = 0, cumCapitale = 0;
+  for(let m=1;m<=mesi;m++){
+    const intMese = residuo * r;
+    const capMese = rata - intMese;
+    residuo -= capMese;
+    cumInteressi += intMese;
+    cumCapitale += capMese;
+    schedule.push({mese:m, rata, quotaInteressi:intMese, quotaCapitale:capMese, residuo:Math.max(0,residuo), cumInteressi, cumCapitale});
+  }
+  return {rata,interessi,totale,schedule};
+}
+
+function calcola(){
+  if(mutui.length===0){ alert('Aggiungi almeno un mutuo.'); return; }
+  calcResults = [];
+  for(let i=0;i<mutui.length;i++){
+    const id = mutui[i];
+    const cap = parseFloat(document.getElementById('cap-'+id).value);
+    const tasso = parseFloat(document.getElementById('tasso-'+id).value);
+    let durata = parseInt(document.getElementById('durata-'+id).value);
+    const tipo = document.getElementById('tipo-'+id).value;
+    if(isNaN(cap)||isNaN(tasso)||isNaN(durata)||cap<=0||durata<=0){
+      alert(`Dati non validi per il Mutuo ${i+1}.`); return;
+    }
+    const mesi = tipo==='anni'? durata*12 : durata;
+    const res = calcMutuo(cap,tasso,mesi);
+    const durataLabel = tipo==='anni'? `${durata} anni (${mesi} mesi)` : `${mesi} mesi`;
+    calcResults.push({idx:i+1, capitale:cap, tasso, mesi, durataLabel, color:COLORS[i%COLORS.length], ...res});
+  }
+  renderResults();
+}
+
+function renderResults(){
+  document.getElementById('resultsSection').style.display='';
+
+  // Summary cards
+  const best = calcResults.reduce((a,b)=>a.interessi<b.interessi?a:b);
+  const grid = document.getElementById('resultsGrid');
+  grid.innerHTML = calcResults.map(r=>`
+    <div class="result-card" style="border-left-color:${r.color}">
+      <h4>Mutuo ${r.idx} — ${r.durataLabel} al ${r.tasso}%</h4>
+      <div class="val">€${fmt(r.rata)}<span style="font-size:.8rem;color:var(--muted)">/mese</span></div>
+      <div class="sub">Totale: €${fmt(r.totale)} · Interessi: €${fmt(r.interessi)}</div>
+    </div>`).join('');
+
+  // Summary table
+  const tbl = document.getElementById('summaryTable');
+  tbl.innerHTML = `<thead><tr><th style="text-align:left">Mutuo</th><th>Capitale</th><th>Tasso</th><th>Durata</th><th>Rata Mensile</th><th>Tot. Interessi</th><th>Totale Pagato</th></tr></thead><tbody>`+
+    calcResults.map(r=>`<tr><td style="text-align:left"><span class="dot" style="background:${r.color};width:10px;height:10px;border-radius:50%;display:inline-block"></span> Mutuo ${r.idx}</td><td>€${fmt(r.capitale)}</td><td>${r.tasso}%</td><td>${r.durataLabel}</td><td><strong>€${fmt(r.rata)}</strong></td><td>€${fmt(r.interessi)}</td><td>€${fmt(r.totale)}</td></tr>`).join('')+
+    `</tbody>`;
+
+  renderBarChart();
+  renderAreaTabs();
+  renderAreaChart(0);
+  renderDebtChart();
+}
+
+function renderBarChart(){
+  const ctx = document.getElementById('barChart').getContext('2d');
+  if(barChartInst) barChartInst.destroy();
+  barChartInst = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: calcResults.map(r=>`Mutuo ${r.idx}\n${r.durataLabel}`),
+      datasets:[
+        {label:'Rata Mensile (€)', data:calcResults.map(r=>r.rata), backgroundColor:calcResults.map(r=>r.color+'cc'), borderColor:calcResults.map(r=>r.color), borderWidth:2, yAxisID:'y'},
+        {label:'Totale Pagato (€)', data:calcResults.map(r=>r.totale), backgroundColor:calcResults.map((_,i)=>COLORS[(i+3)%COLORS.length]+'66'), borderColor:calcResults.map((_,i)=>COLORS[(i+3)%COLORS.length]), borderWidth:2, yAxisID:'y1'}
+      ]
+    },
+    options:{
+      responsive:true, plugins:{legend:{labels:{color:'#ccc'}}},
+      scales:{
+        x:{ticks:{color:'#aaa'},grid:{color:'#333'}},
+        y:{position:'left',ticks:{color:COLORS[0],callback:v=>'€'+v.toLocaleString('it-IT')},grid:{color:'#222'},title:{display:true,text:'Rata Mensile (€)',color:COLORS[0]}},
+        y1:{position:'right',ticks:{color:'#aaa',callback:v=>'€'+v.toLocaleString('it-IT')},grid:{drawOnChartArea:false},title:{display:true,text:'Totale Pagato (€)',color:'#aaa'}}
+      }
+    }
+  });
+}
+
+function renderAreaTabs(){
+  const tabs = document.getElementById('areaTabs');
+  tabs.innerHTML = calcResults.map((r,i)=>`<div class="tab ${i===0?'active':''}" onclick="switchAreaTab(${i})" style="${i===activeAreaTab?'background:'+r.color+';border-color:'+r.color:''}"><span class="dot" style="background:${i===activeAreaTab?'#000':r.color};width:8px;height:8px;border-radius:50%;display:inline-block"></span> Mutuo ${r.idx}</div>`).join('');
+}
+
+function switchAreaTab(idx){
+  activeAreaTab = idx;
+  renderAreaTabs();
+  renderAreaChart(idx);
+}
+
+function renderAreaChart(idx){
+  const r = calcResults[idx];
+  const ctx = document.getElementById('areaChart').getContext('2d');
+  if(areaChartInst) areaChartInst.destroy();
+
+  const s = r.schedule;
+  // Show years on x-axis if long, otherwise months
+  const useYears = r.mesi > 60;
+  let labels, cumInt, cumCap;
+  if(useYears){
+    const step = 12;
+    labels=[]; cumInt=[]; cumCap=[];
+    for(let i=step-1;i<s.length;i+=step){
+      labels.push(`Anno ${Math.floor(s[i].mese/12)}`);
+      cumInt.push(s[i].cumInteressi);
+      cumCap.push(s[i].cumCapitale);
+    }
+    if(s.length%12!==0){
+      labels.push(`Mese ${s.length}`);
+      cumInt.push(s[s.length-1].cumInteressi);
+      cumCap.push(s[s.length-1].cumCapitale);
+    }
+  } else {
+    labels = s.map(d=>`Mese ${d.mese}`);
+    cumInt = s.map(d=>d.cumInteressi);
+    cumCap = s.map(d=>d.cumCapitale);
+  }
+
+  areaChartInst = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Capitale versato (€)',
+          data:cumCap,
+          fill:true,
+          backgroundColor:'rgba(150,150,150,0.7)',
+          borderColor:'#aaa',
+          borderWidth:2,
+          pointRadius:0,
+          tension:.3,
+          order:2
+        },
+        {
+          label:'Interessi pagati (€)',
+          data:cumInt.map((v,i)=>v+cumCap[i]),
+          fill:true,
+          backgroundColor:'rgba(245,197,24,0.7)',
+          borderColor:'#f5c518',
+          borderWidth:2,
+          pointRadius:0,
+          tension:.3,
+          order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#ccc'}},
+        tooltip:{
+          callbacks:{
+            label:function(ctx){
+              if(ctx.datasetIndex===1){
+                return `Interessi: €${fmt(cumInt[ctx.dataIndex])}`;
+              }
+              return `Capitale: €${fmt(cumCap[ctx.dataIndex])}`;
+            },
+            afterBody:function(items){
+              const i = items[0].dataIndex;
+              return `Totale pagato: €${fmt(cumInt[i]+cumCap[i])}`;
+            }
+          }
+        },
+        title:{display:true,text:`Mutuo ${r.idx}: €${fmt(r.capitale)} al ${r.tasso}% per ${r.durataLabel}  —  Rata: €${fmt(r.rata)}/mese  ·  Tot. Interessi: €${fmt(r.interessi)}`,color:'#ddd',font:{size:13}}
+      },
+      scales:{
+        x:{ticks:{color:'#aaa',maxTicksLimit:15},grid:{color:'#222'}},
+        y:{stacked:false,ticks:{color:'#aaa',callback:v=>'€'+v.toLocaleString('it-IT')},grid:{color:'#222'},title:{display:true,text:'Importo cumulativo (€)',color:'#aaa'}}
+      }
+    }
+  });
+}
+
+function renderDebtChart(){
+  const ctx = document.getElementById('debtChart').getContext('2d');
+  if(debtChartInst) debtChartInst.destroy();
+  const datasets = calcResults.map(r=>{
+    const s = r.schedule;
+    const useYears = r.mesi > 60;
+    let data;
+    if(useYears){
+      data = [{x:0,y:r.capitale}];
+      for(let i=11;i<s.length;i+=12) data.push({x:Math.floor(s[i].mese/12),y:s[i].residuo});
+      if(s.length%12!==0) data.push({x:s.length/12,y:0});
+    } else {
+      data = [{x:0,y:r.capitale},...s.map(d=>({x:d.mese,y:d.residuo}))];
+    }
+    return {label:`Mutuo ${r.idx} (${r.durataLabel})`,data,borderColor:r.color,backgroundColor:r.color+'33',fill:true,tension:.3,pointRadius:0,borderWidth:2};
+  });
+  const maxMesi = Math.max(...calcResults.map(r=>r.mesi));
+  const useYears = maxMesi > 60;
+  debtChartInst = new Chart(ctx,{
+    type:'line',
+    data:{datasets},
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#ccc'}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: €${fmt(c.parsed.y)}`}}},
+      scales:{
+        x:{type:'linear',ticks:{color:'#aaa',callback:v=>useYears?`Anno ${v}`:`Mese ${v}`},grid:{color:'#222'},title:{display:true,text:useYears?'Anni':'Mesi',color:'#aaa'}},
+        y:{ticks:{color:'#aaa',callback:v=>'€'+v.toLocaleString('it-IT')},grid:{color:'#222'},title:{display:true,text:'Debito residuo (€)',color:'#aaa'}}
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
